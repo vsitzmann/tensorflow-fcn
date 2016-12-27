@@ -90,11 +90,13 @@ def loss(logits, labels, num_classes):
         epsilon = tf.constant(value=1e-4)
         logits = logits + epsilon
         labels = tf.reshape(labels, [-1])
-	labels_one_hot = tf.one_hot(labels, on_value=1, off_value=0, depth=20)
-	labels_one_hot = tf.reshape(labels_one_hot, [-1, 20])
 
-	cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, labels_one_hot, dim=-1)
-	loss=tf.reduce_mean(cross_entropy)
+        # Object borders are class 21 - this class will be dropped by the tf.one_hot function.
+        labels_one_hot = tf.one_hot(labels, on_value=1, off_value=0, depth=20)
+        labels_one_hot = tf.reshape(labels_one_hot, [-1, 20])
+
+        cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits, labels_one_hot, dim=-1)
+        loss=tf.reduce_mean(cross_entropy
 
         # labels = tf.to_float(labels)
         #
@@ -108,6 +110,23 @@ def loss(logits, labels, num_classes):
 
         # loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
     return loss
+
+
+def iou(predictions, gts, out_path=None):
+    # true positive / (truepositive + false positive + false negative)
+    accuracies = np.zeros(20)
+    for i in xrange(20):
+        true_pos = np.sum(np.logical_and(predictions==i, gts==i))
+        all_pred_pos = np.sum(predictions==i)
+        all_gt_pos = np.sum(gts==i)
+        accuracies[i] = 100*true_pos/(all_pred_pos + all_gt_pos - true_pos)
+
+    print(accuracies)
+    print("Mean iou: %f"%accuracies)
+
+    if out_path is not None:
+        with open(out_path, 'wb') as np_file:
+            np.savetxt(np_file, accuracies)
 
 
 def train(num_batches=500, batch_size=50):
@@ -148,8 +167,9 @@ def train(num_batches=500, batch_size=50):
                 with open('test.txt', 'wb') as f:
                     np.savetxt(f, test_pred[0].astype(float))
                 up_color = utils.color_image(test_pred[0])
-		#plt.imshow(up_color[:, :, :3])
-		#plt.show()
+
+                #plt.imshow(up_color[:, :, :3])
+                #plt.show()
 
                 scp.misc.imsave('test.png', up_color)
 
